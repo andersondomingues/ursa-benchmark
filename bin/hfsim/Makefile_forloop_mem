@@ -11,6 +11,8 @@ CFLAGS_STRIP = -fdata-sections -ffunction-sections
 LDFLAGS_STRIP = --gc-sections
 LD_SCRIPT = hf-risc.ld
 
+OBJS= crt0.o  interrupt.o  libc.o  malloc.o  math.o $(TARGET).o
+
 GCC_riscv = riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -Os -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I $(HF_PATH)/software/include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) -DDEBUG_PORT #-ffixed-s10 -ffixed-s11 -mno-div -mrvc -fPIC -DDEBUG_PORT
 AS_riscv = riscv32-unknown-elf-as -march=rv32i -mabi=ilp32 #-fPIC
 LD_riscv = riscv32-unknown-elf-ld -melf32lriscv $(LDFLAGS_STRIP)
@@ -29,7 +31,7 @@ crt:
 
 link: 
 
-	$(LD_$(ARCH)) -T$(HF_PATH)/software/lib/$(ARCH)/$(LD_SCRIPT) -Map $(TARGET).map -N -o $(TARGET).elf *.o
+	$(LD_$(ARCH)) -T$(HF_PATH)/software/lib/$(ARCH)/$(LD_SCRIPT) -Map $(TARGET).map -N -o $(TARGET).elf $(OBJS)
 	#$(DUMP_$(ARCH)) --disassemble --reloc $(TARGET).elf > $(TARGET).lst
 	#$(DUMP_$(ARCH)) -h $(TARGET).elf > $(TARGET).sec
 	#$(DUMP_$(ARCH)) -s $(TARGET).elf > $(TARGET).cnt

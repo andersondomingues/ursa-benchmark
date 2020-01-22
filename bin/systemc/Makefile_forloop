@@ -8,7 +8,7 @@ CC       = riscv64-unknown-elf-gcc
 # compiling flags here
 #CFLAGS = -Wall -I. -O0 -nostartfiles  -march=rv32i -mabi=ilp32
 #CFLAGS = -Wall -I. -O0 -nodefaultlibs -march=rv32i -mabi=ilp32
-CFLAGS = -DSYSTEMC-Wall -I. -Os -nostdlib -march=rv32i -mabi=ilp32 --entry main
+CFLAGS = -DSYSTEMC -Wall -I. -Os -nostdlib -march=rv32i -mabi=ilp32 --entry main
 
 
 LINKER   = riscv64-unknown-linux-gnu-gcc
@@ -36,10 +36,9 @@ rm       = rm -f
 
 
 $(BINDIR)/$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(LFLAGS) -march=rv32i -mabi=ilp32   $(LIBS) $(LIBDIR) -o $@
-	#riscv64-unknown-elf-objcopy -d $< > dump
-	riscv64-unknown-elf-objcopy -Oihex $< $(TARGET).hex
-	riscv64-unknown-elf-objcopy -O binary $< $(TARGET).bin
+	$(CC) $(OBJECTS) $(LFLAGS) -march=rv32i -mabi=ilp32   $(LIBS) $(LIBDIR) -o $(TARGET).elf
+	riscv64-unknown-elf-objcopy -Oihex $(TARGET).elf $(TARGET).hex
+	riscv64-unknown-elf-objcopy -O binary $(TARGET).elf $(TARGET).bin
 #	@echo "Linking complete!"
 
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
@@ -50,7 +49,7 @@ $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
 
 .PHONY: clean
 clean:
-	@$(rm) $(OBJECTS) *.hex *.bin $(TARGET)
+	@$(rm) $(OBJECTS) *.elf *.hex *.bin $(TARGET)
 	@echo "Cleanup complete!"
 
 .PHONY: remove
