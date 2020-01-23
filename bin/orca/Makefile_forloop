@@ -1,0 +1,74 @@
+TARGET   = forloop
+
+# this is stuff specific to this architecture
+ARCH=riscv
+ORCA_PATH=/home/ale/repos/riscv/orca-sim
+HF_PATH=$(ORCA_PATH)/software/hellfireos
+SIM=$(ORCA_PATH)/bin/single-core.exe
+ARCH_DIR = $(HF_PATH)/arch/$(ARCH)/hf-riscv
+INC_DIRS  = -I $(ARCH_DIR)/include
+
+#F_CLK=25000000
+F_CLK=1000000
+TIME_SLICE=0
+KERNEL_VER = v2.18.10
+
+#OBJS= crt0.o  interrupt.o  libc.o  malloc.o  math.o $(TARGET).o
+OBJS= crt0.o  interrupt.o  $(TARGET).o
+
+#remove unreferenced functions
+CFLAGS_STRIP = -fdata-sections -ffunction-sections
+LDFLAGS_STRIP = -print-gc-sections #--gc-sections
+
+# this is stuff used everywhere - compiler and flags should be declared (ASFLAGS, CFLAGS, LDFLAGS, LINKER_SCRIPT, CC, AS, LD, DUMP, READ, OBJ and SIZE).
+# remember the kernel, as well as the application, will be compiled using the *same* compiler and flags!
+ASFLAGS = -march=rv32im -mabi=ilp32 -fPIC
+CFLAGS = -Wall -march=rv32im -mabi=ilp32 -c -Os -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 \
+		 -fomit-frame-pointer $(INC_DIRS) -DCPU_SPEED=${F_CLK} -DTIME_SLICE=${TIME_SLICE} \
+		 -DLITTLE_ENDIAN $(CFLAGS_STRIP) -DKERN_VER=\"$(KERNEL_VER)\" \
+		 #-DDEBUG_PORT #-mrvc -fPIC -DDEBUG_PORT -msoft-float -fshort-double
+		 
+LDFLAGS = -melf32lriscv $(LDFLAGS_STRIP)
+LINKER_SCRIPT = $(ARCH_DIR)/hf-riscv.ld
+
+CC = riscv32-unknown-elf-gcc
+CPP = riscv32-unknown-elf-g++
+AS = riscv32-unknown-elf-as
+LD = riscv32-unknown-elf-ld
+DUMP = riscv32-unknown-elf-objdump -Mno-aliases
+READ = riscv32-unknown-elf-readelf
+OBJ = riscv32-unknown-elf-objcopy
+SIZE = riscv32-unknown-elf-size
+
+
+crt:
+	$(AS)  -march=rv32i -mabi=ilp32 -o crt0.o $(ARCH_DIR)/boot/crt0.s
+	$(CC) $(CFLAGS) -o interrupt.o src/interrupt.c
+	#$(CC) $(CFLAGS) -o interrupt.o $(ARCH_DIR)/drivers/interrupt.c
+	#$(CC) $(CFLAGS) -o hal.o $(ARCH_DIR)/drivers/hal.c 
+	#$(CC) $(CFLAGS) -o libc.o $(HF_PATH)/lib/libc/libc.c
+	#$(CC) $(CFLAGS) -o math.o $(HF_PATH)/sys/lib/lib/math.c
+	#$(CC) $(CFLAGS) -o malloc.o $(HF_PATH)/sys/lib/malloc.c
+
+
+link: 
+
+	$(LD) -melf32lriscv $(LDFLAGS_STRIP) -T$(ARCH_DIR)/hf-riscv.ld -Map $(TARGET).map -N -o $(TARGET).elf $(OBJS)
+	#$(DUMP) --disassemble --reloc $(TARGET).elf > $(TARGET).lst
+	#$(DUMP) -h $(TARGET).elf > $(TARGET).sec
+	#$(DUMP) -s $(TARGET).elf > $(TARGET).cnt
+	$(OBJ) -O binary $(TARGET).elf $(TARGET).bin
+	$(SIZE) $(TARGET).elf
+	hexdump -v -e '4/1 "%02x" "\n"' $(TARGET).bin > $(TARGET).txt
+
+app: crt
+	$(CC) -o $(TARGET).o ../../src/$(TARGET).c
+	@$(MAKE) -f Makefile_$(TARGET) --no-print-directory link
+	
+.PHONY: clean
+clean:
+	-rm -rf *~ *.o *.elf *.map *.lst *.sec *.cnt *.txt *.log *.bin *.vhd
+	@echo "Cleanup complete!"
+		
+sim: app
+	$(SIM) $(TARGET).bin 

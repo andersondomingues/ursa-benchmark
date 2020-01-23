@@ -1,0 +1,15 @@
+TARGET   = forloop
+
+#RV8_PATH=/home/ale/repos/riscv/freedom-e-sdk
+SIM=rv-jit
+
+app: 
+	riscv32-unknown-elf-gcc -march=rv32i -Wall -fpie  -Os -ffunction-sections -fdata-sections ../../src/$(TARGET).c -o $(TARGET).elf
+	
+.PHONY: clean
+clean:
+	-rm -rf *~ *.o *.elf *.map 
+	@echo "Cleanup complete!"
+		
+sim: app
+	$(SIM) $(TARGET).elf
