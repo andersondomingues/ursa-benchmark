@@ -1,0 +1,54 @@
+TARGET   = forloop
+ARCH=riscv
+
+TARGET_ARCH=riscv32
+HF_PATH=/home/ale/repos/riscv/hf-risc
+#SIM_PATH=$(HF_PATH)/tools/sim/hf_riscv_sim
+#SIM=$(SIM_PATH)/hf_riscv_sim
+
+F_CLK=25000000
+CFLAGS_STRIP = -fdata-sections -ffunction-sections
+LDFLAGS_STRIP = --gc-sections
+LD_SCRIPT = hf-risc.ld
+
+OBJS= crt0.o  interrupt.o  libc.o  malloc.o  math.o $(TARGET).o
+
+GCC_riscv = riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -Os -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I $(HF_PATH)/software/include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) -DDEBUG_PORT #-ffixed-s10 -ffixed-s11 -mno-div -mrvc -fPIC -DDEBUG_PORT
+AS_riscv = riscv32-unknown-elf-as -march=rv32i -mabi=ilp32 #-fPIC
+LD_riscv = riscv32-unknown-elf-ld -melf32lriscv $(LDFLAGS_STRIP)
+DUMP_riscv = riscv32-unknown-elf-objdump -Mno-aliases
+READ_riscv = riscv32-unknown-elf-readelf
+OBJ_riscv = riscv32-unknown-elf-objcopy
+SIZE_riscv = riscv32-unknown-elf-size
+
+crt:
+	$(AS_$(ARCH)) -o crt0.o $(HF_PATH)/software/lib/$(ARCH)/crt0.s
+	$(GCC_$(ARCH)) -o libc.o $(HF_PATH)/software/lib/libc.c
+	$(GCC_$(ARCH)) -o interrupt.o $(HF_PATH)/software/lib/interrupt.c
+	$(GCC_$(ARCH)) -o math.o $(HF_PATH)/software/lib/math.c
+	$(GCC_$(ARCH)) -o malloc.o $(HF_PATH)/software/lib/malloc.c
+
+
+link: 
+
+	$(LD_$(ARCH)) -T$(HF_PATH)/software/lib/$(ARCH)/$(LD_SCRIPT) -Map $(TARGET).map -N -o $(TARGET).elf $(OBJS)
+	#$(DUMP_$(ARCH)) --disassemble --reloc $(TARGET).elf > $(TARGET).lst
+	#$(DUMP_$(ARCH)) -h $(TARGET).elf > $(TARGET).sec
+	#$(DUMP_$(ARCH)) -s $(TARGET).elf > $(TARGET).cnt
+	$(OBJ_$(ARCH)) -O binary $(TARGET).elf $(TARGET).bin
+	$(SIZE_$(ARCH)) $(TARGET).elf
+	hexdump -v -e '4/1 "%02x" "\n"' $(TARGET).bin > code.txt
+
+app: crt
+	$(GCC_$(ARCH)) -o $(TARGET).o ../../src/$(TARGET).c
+	@$(MAKE) -f Makefile_$(TARGET) --no-print-directory link
+	
+.PHONY: clean
+clean:
+	-rm -rf *~ *.o *.elf *.map *.lst *.sec *.cnt *.txt *.log *.bin *.vhd transcript work
+	@echo "Cleanup complete!"
+		
+sim: app
+	cp config/boot.txt .
+	vsim -c -do comp.do -t 10ps
+	vsim -c -do sim.do -t 10ps
